@@ -7,15 +7,19 @@ def function_2(c: int, d: int) -> int:
 
 
 def say_hello() -> None:
-    print("Hello, there")
+    print("Hello, there")  # What about an end of line comment
 
 
 def combined() -> int:
+    """
+    This is a docstring
+    """
     say_hello()
     return function_1(1, 2)
 
 
 def one_more_function_here():
+    # This is a comment
     return None
 
 
@@ -26,6 +30,9 @@ def more_complex() -> list[int]:
         output.append(x)
         another_thing[x] = f"{x=}"
     print(another_thing)
+    """
+    This is a multiline comment
+    """
     a = 1 + 2
     b = 123 + a
     a *= b

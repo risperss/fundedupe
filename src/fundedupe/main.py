@@ -1,6 +1,8 @@
 import ast
+from collections.abc import Generator
 from pathlib import Path
 
+import click
 from black import FileMode, format_str
 from simhash import Simhash, SimhashIndex
 
@@ -12,10 +14,6 @@ def get_function_defs(path: Path) -> list[ast.FunctionDef]:
         for ast_obj in ast.parse(contents).body
         if isinstance(ast_obj, ast.FunctionDef)
     ]
-
-
-def get_function_sources(function_defs: list[ast.FunctionDef]) -> list[str]:
-    return [ast.unparse(function_def) for function_def in function_defs]
 
 
 # TODO: investigate if there is benefit to converting spaces to tabs
@@ -31,25 +29,41 @@ def get_simhashes(function_sources: list[str]) -> list[Simhash]:
     return [Simhash(source) for source in function_sources]
 
 
-def main():
-    test_file = Path("src/fundedupe/dummy.py")
-    function_defs = get_function_defs(test_file)
-    function_names = [d.name for d in function_defs]
-    function_sources = get_function_sources(function_defs)
-    formatted_function_sources = get_formatted_function_sources(function_sources)
-    simhashes = get_simhashes(formatted_function_sources)
+def compute_target_hashes(path: Path) -> Generator[int, None, None]:
+    source_files = path.glob("**/*.py")
+    functions = (
+        (f"{str(source_file.parent)}::{function_def.name}", function_def)
+        for source_file in source_files
+        for function_def in get_function_defs(source_file)
+    )
+    # NOTE: I know there is a better way to do below, but it confuses my linter
+    _ = (name for name, _ in functions)
+    function_defs = (function_def for _, function_def in functions)
+    function_sources = (ast.unparse(function_def) for function_def in function_defs)
+    function_fingerprints = (Simhash(source) for source in function_sources)
+    function_fingerprint_values = (
+        fingerprint.value for fingerprint in function_fingerprints
+    )
 
-    control_name, control_simhash = function_names.pop(0), simhashes.pop(0)
+    return function_fingerprint_values
 
-    simhash_index_objs = list(zip(function_names, simhashes))
-    simhash_index = SimhashIndex(simhash_index_objs, k=20)
 
-    for x in simhashes:
-        print(x, end="\n\n")
+@click.command()
+@click.option(
+    "--target",
+    default=".",
+    help="path to search for duplicate function code",
+)
+def dedupe(target):
+    path = Path(target)
 
-    print(control_name)
-    print(simhash_index.get_near_dups(control_simhash))
+    if not path.exists():
+        click.echo(f"ERROR: invalid target {target}", err=True)
+        return
+
+    hashes = list(compute_target_hashes(path))
+    print("Functions analyzed: ", len(hashes))
 
 
 if __name__ == "__main__":
-    main()
+    dedupe()
