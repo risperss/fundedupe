@@ -6,6 +6,10 @@ def function_2(c: int, d: int) -> int:
     return c + d
 
 
+def function_3(c: int, d: int) -> int:
+    return c + d
+
+
 def say_hello() -> None:
     print("Hello, there")  # What about an end of line comment
 
